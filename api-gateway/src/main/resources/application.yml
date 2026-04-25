@@ -18,7 +18,13 @@ spring:
           uri: lb://MS-PROJECTS
           predicates:
             - Path=/api/projects/**
-            - Path=/api/**
+           
+
+        # 3. Route pour le Backlog (Port 8083) - NOUVEAU
+        - id: backlog-route
+          uri: lb://MS-BACKLOG
+          predicates:
+            - Path=/api/backlog/**
       
       # Configuration Global CORS
       globalcors:
