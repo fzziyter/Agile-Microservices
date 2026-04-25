@@ -1,0 +1,23 @@
+.project-detail { display: flex; flex-direction: column; gap: 20px; }
+
+.project-detail-bread {
+  display: flex; align-items: center; gap: 6px;
+  font-size: .82rem; color: var(--text-muted);
+}
+.bread-link { color: var(--text-muted); text-decoration: none; }
+.bread-link:hover { color: var(--accent); }
+.bread-sep { opacity: .5; }
+
+.project-detail-hero {
+  padding: 24px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+}
+.pdh-left   { display: flex; align-items: center; gap: 16px; }
+.pdh-icon   { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; flex-shrink: 0; }
+
+.project-detail-date { font-size: .8rem; color: var(--text-muted); }
+.project-detail-desc { padding: 20px; }
+
+.pd-stat { padding: 20px; text-align: center; }
+.pd-stat-val { font-family: var(--font-display); font-size: 1.6rem; font-weight: 700; color: var(--gray-700); }
+.pd-stat-lbl { font-size: .78rem; color: var(--text-muted); margin-top: 4px; }

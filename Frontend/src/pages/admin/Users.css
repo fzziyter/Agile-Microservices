@@ -1,0 +1,8 @@
+.users-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.user-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--blue-100); color: var(--blue-700);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: .875rem; flex-shrink: 0;
+}

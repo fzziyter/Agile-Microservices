@@ -1,0 +1,26 @@
+.backlog-toolbar {
+  display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap;
+}
+.backlog-search {
+  flex: 1; min-width: 180px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--gray-50); border: 1.5px solid var(--border);
+  border-radius: var(--radius-md); padding: 9px 12px;
+}
+
+.backlog-type-filters {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.backlog-filter-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 99px; font-size: .8rem; font-weight: 500;
+  border: 1.5px solid var(--border); background: var(--bg-card);
+  color: var(--text-secondary); cursor: pointer; transition: all .15s;
+}
+.backlog-filter-btn:hover { border-color: var(--blue-300); color: var(--blue-600); background: var(--blue-50); }
+.backlog-filter-btn.active { background: var(--blue-500); color: #fff; border-color: var(--blue-500); }
+.backlog-filter-count {
+  background: rgba(255,255,255,.25); border-radius: 99px;
+  padding: 1px 7px; font-size: .72rem;
+}
+.backlog-filter-btn:not(.active) .backlog-filter-count { background: var(--gray-100); color: var(--text-muted); }

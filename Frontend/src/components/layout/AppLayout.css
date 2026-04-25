@@ -1,0 +1,19 @@
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+.app-main {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+.app-content {
+  padding: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .app-layout { flex-direction: column; }
+  .app-content { padding: 16px; }
+}
