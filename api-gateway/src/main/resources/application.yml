@@ -5,12 +5,19 @@ spring:
   application:
     name: api-gateway
   cloud:
-    gateway:
-      # Configuration des routes
+   gateway:
       routes:
+        # Route pour l'Authentification et l'Admin
         - id: auth-route
           uri: lb://MS-AUTH-USER
           predicates:
+            - Path=/api/auth/**, /api/admin/**
+
+        # Route pour les Projets
+        - id: projects-route
+          uri: lb://MS-PROJECTS
+          predicates:
+            - Path=/api/projects/**
             - Path=/api/**
       
       # Configuration Global CORS
