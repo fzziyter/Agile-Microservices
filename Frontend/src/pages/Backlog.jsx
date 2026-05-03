@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import { useApi, useMutation } from '../hooks/useApi'
 import { useAuth } from '../context/AuthContext'
-import { backlogApi, projectsApi } from '../api/services'
+import { adminApi, backlogApi, projectsApi } from '../api/services'
 import { useToast } from '../context/ToastContext'
 import BacklogItemForm from './BacklogItemForm'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import './Backlog.css'
 
 export default function Backlog() {
-  const { can } = useAuth()
+  const { can, user } = useAuth()
   const toast = useToast()
 
   const { data: projects } = useApi(projectsApi.list)
+  const { data: users } = useApi(
+    user?.role === 'ADMIN' ? adminApi.listUsers : () => Promise.resolve({ data: [] })
+  )
   const [selectedProject, setSelectedProject] = useState('')
   const [typeFilter, setTypeFilter] = useState('ALL')
+  const [mineOnly, setMineOnly] = useState(false)
   const [search, setSearch] = useState('')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -26,12 +30,14 @@ export default function Backlog() {
 
   const createMut = useMutation((pid, d) => backlogApi.create(pid, d))
   const updateMut = useMutation((id, d) => backlogApi.update(id, d))
+  const statusMut = useMutation((id, status, comment) => backlogApi.updateStatus(id, status, comment))
   const deleteMut = useMutation(backlogApi.remove)
 
   const filtered = (items || []).filter(item => {
     const matchSearch = item.title?.toLowerCase().includes(search.toLowerCase())
-    const matchType   = typeFilter === 'ALL' || item.type === typeFilter
-    return matchSearch && matchType
+    const matchType   = typeFilter === 'ALL' || item.type === typeFilter || (typeFilter === 'TECHNICAL_TASK' && item.type === 'TECH_TASK')
+    const matchMine   = !mineOnly || String(item.assignedToId) === String(user?.id)
+    return matchSearch && matchType && matchMine
   })
 
   const handleNewClick = () => {
@@ -71,10 +77,78 @@ export default function Backlog() {
     else toast.error(res.message)
   }
 
+  const canChangeStatus = (item) => {
+    const role = user?.role
+    const isAssignedUser = String(item.assignedToId) === String(user?.id)
+    return isAssignedUser || ['ADMIN', 'PRODUCT_OWNER', 'SCRUM_MASTER'].includes(role)
+  }
+
+  const nextStatus = (status) => {
+    if (!status || status === 'TODO') return 'IN_PROGRESS'
+    if (status === 'IN_PROGRESS') return 'DONE'
+    return null
+  }
+
+  const handleStatusChange = async (item, status) => {
+    if (!canChangeStatus(item)) {
+      toast.error('Only the assignee or a project lead can change this status.')
+      return
+    }
+    const comment = status === 'BLOCKED' ? window.prompt('Why is this task blocked?') : ''
+    if (status === 'BLOCKED' && comment === null) return
+    const res = await statusMut.mutate(item.id, status, comment)
+    if (res.ok) {
+      toast.success(`Status changed to ${statusLabel(status)}`)
+      refetch()
+    } else {
+      toast.error(res.message)
+    }
+  }
+
+  const handleQaValidate = async (item) => {
+    if (!['QA', 'ADMIN'].includes(user?.role)) {
+      toast.error('Only QA can validate the task.')
+      return
+    }
+    const res = await updateMut.mutate(item.id, { qaValidated: true, qaComment: '' })
+    if (res.ok) { toast.success('QA validation saved'); refetch() }
+    else toast.error(res.message)
+  }
+
+  const handleCreateBug = async (item) => {
+    if (!['QA', 'ADMIN'].includes(user?.role)) {
+      toast.error('Only QA can report a bug.')
+      return
+    }
+    const description = window.prompt('Describe the bug found by QA:')
+    if (description === null) return
+    const res = await createMut.mutate(item.projectId || selectedProject, {
+      title: `Bug: ${item.title}`,
+      description,
+      type: 'BUG',
+      priority: 'HIGH',
+      status: 'TODO',
+      sprintId: item.sprintId || null,
+    })
+    if (res.ok) { toast.success('Bug created'); refetch() }
+    else toast.error(res.message)
+  }
+
+  const handlePoValidate = async (item) => {
+    if (!['PRODUCT_OWNER', 'ADMIN'].includes(user?.role)) {
+      toast.error('Only Product Owner can validate the task.')
+      return
+    }
+    const res = await updateMut.mutate(item.id, { poValidated: true })
+    if (res.ok) { toast.success('PO validation saved'); refetch() }
+    else toast.error(res.message)
+  }
+
   const typeStats = {
     USER_STORY: filtered.filter(i => i.type === 'USER_STORY').length,
     BUG:        filtered.filter(i => i.type === 'BUG').length,
-    TECH_TASK:  filtered.filter(i => i.type === 'TECH_TASK').length,
+    TECH_TASK:  filtered.filter(i => i.type === 'TECH_TASK' || i.type === 'TECHNICAL_TASK').length,
+    QA:         filtered.filter(i => i.type === 'QA').length,
   }
 
   return (
@@ -101,6 +175,9 @@ export default function Backlog() {
           <SearchIcon />
           <input className="projects-search-input" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} disabled={!selectedProject} />
         </div>
+        <button className={`btn btn-sm ${mineOnly ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setMineOnly(v => !v)} disabled={!user?.id}>
+          My tasks
+        </button>
       </div>
 
       {selectedProject && (
@@ -109,7 +186,8 @@ export default function Backlog() {
             { key: 'ALL',        label: 'All',            count: filtered.length },
             { key: 'USER_STORY', label: 'User Stories',   count: typeStats.USER_STORY },
             { key: 'BUG',        label: 'Bugs',           count: typeStats.BUG },
-            { key: 'TECH_TASK',  label: 'Tech tasks',     count: typeStats.TECH_TASK },
+            { key: 'TECHNICAL_TASK', label: 'Tech tasks', count: typeStats.TECH_TASK },
+            { key: 'QA',         label: 'QA',             count: typeStats.QA },
           ].map(f => (
             <button key={f.key} className={`backlog-filter-btn ${typeFilter === f.key ? 'active' : ''}`} onClick={() => setTypeFilter(f.key)}>
               {f.label} <span className="backlog-filter-count">{f.count}</span>
@@ -136,8 +214,12 @@ export default function Backlog() {
                   <th>Title</th>
                   <th>Type</th>
                   <th>Priority</th>
+                  <th>Status</th>
+                  <th>Review</th>
                   <th>Points</th>
                   <th>Hours</th>
+                  <th>Sprint</th>
+                  <th>Assigned</th>
                   <th style={{ width: 80 }}>Actions</th>
                 </tr>
               </thead>
@@ -151,8 +233,42 @@ export default function Backlog() {
                     </td>
                     <td><span className={`badge ${typeBadge(item.type)}`}>{typeLabel(item.type)}</span></td>
                     <td><span className={`badge ${priorityBadge(item.priority)}`}>{priorityLabel(item.priority)}</span></td>
+                    <td>
+                      <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                        <span className={`badge ${statusBadge(item.status)}`}>{statusLabel(item.status)}</span>
+                        {canChangeStatus(item) && nextStatus(item.status) && (
+                          <button className="btn btn-sm btn-secondary" onClick={() => handleStatusChange(item, nextStatus(item.status))} disabled={statusMut.loading}>
+                            {nextStatus(item.status) === 'IN_PROGRESS' ? 'Start' : 'Done'}
+                          </button>
+                        )}
+                        {canChangeStatus(item) && item.status !== 'BLOCKED' && item.status !== 'DONE' && (
+                          <button className="btn btn-sm btn-ghost" onClick={() => handleStatusChange(item, 'BLOCKED')} disabled={statusMut.loading}>
+                            Block
+                          </button>
+                        )}
+                      </div>
+                      {item.blockedComment && <p style={{ color:'var(--red-600)', fontSize:'.75rem', marginTop:4 }}>{item.blockedComment}</p>}
+                    </td>
+                    <td>
+                      <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
+                        {item.qaValidated && <span className="badge badge-green">QA OK</span>}
+                        {item.poValidated && <span className="badge badge-blue">PO OK</span>}
+                        {item.status === 'DONE' && !item.qaValidated && ['QA', 'ADMIN'].includes(user?.role) && (
+                          <button className="btn btn-sm btn-secondary" onClick={() => handleQaValidate(item)}>QA OK</button>
+                        )}
+                        {item.status === 'DONE' && ['QA', 'ADMIN'].includes(user?.role) && (
+                          <button className="btn btn-sm btn-ghost" onClick={() => handleCreateBug(item)}>Bug</button>
+                        )}
+                        {item.status === 'DONE' && item.qaValidated && !item.poValidated && ['PRODUCT_OWNER', 'ADMIN'].includes(user?.role) && (
+                          <button className="btn btn-sm btn-secondary" onClick={() => handlePoValidate(item)}>PO validate</button>
+                        )}
+                        {!item.qaValidated && !item.poValidated && item.status !== 'DONE' && <span style={{ color:'var(--text-muted)', fontSize:'.8rem' }}>Waiting</span>}
+                      </div>
+                    </td>
                     <td style={{ fontWeight: 600, color: 'var(--blue-600)' }}>{item.storyPoints ?? '—'}</td>
                     <td style={{ color: 'var(--text-secondary)' }}>{item.estimatedHours ? `${item.estimatedHours}h` : '—'}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{item.sprintId ?? '—'}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{item.assignedToId ?? '—'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
                         <button className="btn btn-icon btn-ghost btn-sm" onClick={() => handleEditClick(item)} title="Edit"><EditIcon /></button>
@@ -167,16 +283,18 @@ export default function Backlog() {
         </div>
       )}
 
-      <BacklogItemForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null) }} onSubmit={handleSubmit} initial={editing} loading={createMut.loading || updateMut.loading} />
+      <BacklogItemForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null) }} onSubmit={handleSubmit} initial={editing} loading={createMut.loading || updateMut.loading} users={users || []} />
       <ConfirmDialog open={!!deleting} onClose={() => setDeleting(null)} onConfirm={handleDelete} loading={deleteMut.loading} title="Delete item" message={`Delete "${deleting?.title}"?`} />
     </div>
   )
 }
 
-const typeLabel     = t => ({ USER_STORY: 'User Story', BUG: 'Bug', TECH_TASK: 'Tech task' })[t] || t
-const typeBadge     = t => ({ USER_STORY: 'badge-blue', BUG: 'badge-red', TECH_TASK: 'badge-gray' })[t] || 'badge-gray'
+const typeLabel     = t => ({ USER_STORY: 'User Story', BUG: 'Bug', TECH_TASK: 'Tech task', TECHNICAL_TASK: 'Tech task', QA: 'QA' })[t] || t
+const typeBadge     = t => ({ USER_STORY: 'badge-blue', BUG: 'badge-red', TECH_TASK: 'badge-gray', TECHNICAL_TASK: 'badge-gray', QA: 'badge-green' })[t] || 'badge-gray'
 const priorityLabel = p => ({ CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' })[p] || p
 const priorityBadge = p => ({ CRITICAL: 'badge-red', HIGH: 'badge-amber', MEDIUM: 'badge-blue', LOW: 'badge-gray' })[p] || 'badge-gray'
+const statusLabel   = s => ({ TODO: 'To Do', IN_PROGRESS: 'In Progress', DONE: 'Done', BLOCKED: 'Blocked' })[s] || s
+const statusBadge   = s => ({ TODO: 'badge-gray', IN_PROGRESS: 'badge-blue', DONE: 'badge-green', BLOCKED: 'badge-red' })[s] || 'badge-gray'
 
 function PlusIcon()   { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> }
 function SearchIcon() { return <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)' }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> }

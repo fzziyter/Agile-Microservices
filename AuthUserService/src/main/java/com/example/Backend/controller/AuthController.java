@@ -54,6 +54,7 @@ public class AuthController {
 
             return ResponseEntity.ok(Map.of(
                     "token",    token,
+                    "id",       user.getId(),
                     "username", user.getUsername(),
                     "role",     user.getRole().name()
             ));
@@ -77,6 +78,7 @@ public class AuthController {
 
         return userRepository.findByUsername(authentication.getName())
                 .map(user -> ResponseEntity.ok(Map.of(
+                        "id",       user.getId(),
                         "username", user.getUsername(),
                         "role",     user.getRole().name()
                 )))

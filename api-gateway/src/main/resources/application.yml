@@ -25,18 +25,31 @@ spring:
           uri: lb://MS-BACKLOG
           predicates:
             - Path=/api/backlog/**
+
+        - id: sprints-route
+          uri: lb://MS-SPRINTS
+          predicates:
+            - Path=/api/sprints/**
+
+        - id: notifications-route
+          uri: lb://MS-NOTIFICATIONS
+          predicates:
+            - Path=/api/notifications/**
       
       # Configuration Global CORS
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "http://localhost:3000"
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://localhost:5173"
             allowedHeaders: "*"
             allowCredentials: true
             allowedMethods:
               - GET
               - POST
               - PUT
+              - PATCH
               - DELETE
 
 # Configuration du client Eureka

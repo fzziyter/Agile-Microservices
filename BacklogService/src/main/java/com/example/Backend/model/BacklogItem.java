@@ -3,21 +3,31 @@ package com.example.Backend.model;
 import jakarta.persistence.*;
 import lombok.Data;
 
-@Entity @Data
+@Entity
+@Data
 public class BacklogItem {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String title;
     private String description;
 
     @Enumerated(EnumType.STRING)
-    private ItemType type; // USER_STORY, BUG, TASK
+    private ItemType type;
 
-    private String priority; // 1 (Haute) à 5 (Basse)
+    private String priority;
 
-  
-    private Long projectId; // Lien vers le projet parent
+    @Enumerated(EnumType.STRING)
+    private TaskStatus status = TaskStatus.TODO;
+
+    private Double estimatedHours;
+    private Integer storyPoints;
+    private Long assignedToId;
+    private Long sprintId;
+    private Long projectId;
+    private String blockedComment;
+    private Boolean qaValidated = false;
+    private String qaComment;
+    private Boolean poValidated = false;
 }
-
-enum ItemType { USER_STORY, BUG, TECHNICAL_TASK }

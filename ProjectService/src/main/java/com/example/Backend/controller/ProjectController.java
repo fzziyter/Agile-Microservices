@@ -1,6 +1,8 @@
 package com.example.Backend.controller;
 
+import com.example.Backend.dto.InviteMemberRequest;
 import com.example.Backend.model.Project;
+import com.example.Backend.model.ProjectMember;
 import com.example.Backend.service.ProjectService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,5 +42,25 @@ public class ProjectController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         projectService.deleteProject(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/members")
+    public ResponseEntity<ProjectMember> inviteMember(@PathVariable Long id, @RequestBody InviteMemberRequest request) {
+        return ResponseEntity.status(201).body(projectService.inviteMember(id, request));
+    }
+
+    @PostMapping("/{id}/membres")
+    public ResponseEntity<ProjectMember> inviteMembre(@PathVariable Long id, @RequestBody InviteMemberRequest request) {
+        return inviteMember(id, request);
+    }
+
+    @GetMapping("/{id}/members")
+    public List<ProjectMember> getMembers(@PathVariable Long id) {
+        return projectService.getMembers(id);
+    }
+
+    @GetMapping("/{id}/membres")
+    public List<ProjectMember> getMembres(@PathVariable Long id) {
+        return getMembers(id);
     }
 }

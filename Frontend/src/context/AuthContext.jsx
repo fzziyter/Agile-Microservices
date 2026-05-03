@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
     try {
       // 1. Call the JWT login endpoint
       const { data } = await axios.post('/api/auth/login', { username, password })
-      // data = { token: "...", username: "...", role: "..." }
+      // data = { token: "...", id: 1, username: "...", role: "..." }
 
       // 2. Store the JWT so client.js interceptor attaches it on every request
       localStorage.setItem('token', data.token)
@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
       const perms = getPermissionsForRole(data.role)
 
       // 4. Persist user info
-      const userData = { username: data.username, role: data.role }
+      const userData = { id: data.id, username: data.username, role: data.role }
       localStorage.setItem('user', JSON.stringify(userData))
       localStorage.setItem('permissions', JSON.stringify(perms))
       setUser(userData)

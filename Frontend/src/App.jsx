@@ -7,6 +7,8 @@ import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/ProjectDetail'
 import Backlog from './pages/Backlog'
+import Sprints from './pages/Sprints'
+import Notifications from './pages/Notifications'
 import Users from './pages/admin/Users'
 import { useAuth } from './context/AuthContext'
 
@@ -32,6 +34,8 @@ function AppRoutes() {
         <Route path="/projects"     element={<Projects />} />
         <Route path="/projects/:id" element={<ProjectDetail />} />
         <Route path="/backlog"      element={<Backlog />} />
+        <Route path="/sprints"      element={<Sprints />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/admin/users"  element={<Users />} />
       </Route>
       <Route path="*" element={<Navigate to="/projects" replace />} />

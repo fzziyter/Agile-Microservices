@@ -1,0 +1,4 @@
+**/target/
+**/run.log
+Frontend/node_modules/
+.vscode/
