@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+
+  # ── Eureka Discovery Server ──────────────────────────────────────────────────
+  # The gateway resolves all lb:// URIs through Eureka, so it must be
+  # healthy before the gateway starts.
+  discovery-server:
+    build:
+      context: ../discovery-server
+    container_name: discovery-server
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ── API Gateway ──────────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: .
+    container_name: api-gateway
+    restart: unless-stopped
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      # ── Eureka ────────────────────────────────────────────────────────────
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_APPLICATION_NAME: api-gateway
+
+      # ── CORS allowed origins (override if your frontend moves) ────────────
+      # These mirror the values already in application.yml.
+      # Add or change origins here without rebuilding the image.
+      SPRING_CLOUD_GATEWAY_GLOBALCORS_CORSCONFIGURATIONS_[/**]_ALLOWEDORIGINS: >-
+        http://localhost:3000,http://localhost:5173
+
+      # ── Route targets (all resolved via Eureka lb://) ─────────────────────
+      # No need to hard-code service ports here — the gateway discovers them
+      # dynamically through Eureka using the service names below:
+      #   lb://MS-AUTH-USER   → AuthUserService  (8081)
+      #   lb://MS-PROJECTS    → ProjectService   (8082)
+      #   lb://MS-BACKLOG     → BacklogService   (8083)
+      #   lb://MS-SPRINTS     → SprintService    (8084)
+      #   lb://MS-NOTIFICATIONS → NotificationService (8085)

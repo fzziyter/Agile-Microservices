@@ -1,0 +1,64 @@
+version: "3.9"
+
+services:
+
+  # ── MySQL for SprintService ──────────────────────────────────────────────────
+  sprint-db:
+    image: mysql:8.0
+    container_name: sprint-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql
+      MYSQL_DATABASE: sprints
+    ports:
+      - "3310:3306"          # host 3310 → container 3306 (avoids port collisions)
+    volumes:
+      - sprint_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pmysql"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ── Eureka Discovery Server ──────────────────────────────────────────────────
+  # SprintService registers with Eureka and is resolved by BacklogService's
+  # SprintClient Feign client, so the registry must be up before this service.
+  discovery-server:
+    build:
+      context: ../discovery-server
+    container_name: discovery-server
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ── SprintService ────────────────────────────────────────────────────────────
+  sprint-service:
+    build:
+      context: .
+    container_name: sprint-service
+    restart: unless-stopped
+    depends_on:
+      sprint-db:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "8084:8084"
+    environment:
+      # ── Database ──────────────────────────────────────────────────────────
+      SPRING_DATASOURCE_URL: jdbc:mysql://sprint-db:3306/sprints?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: mysql
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+
+      # ── Eureka ────────────────────────────────────────────────────────────
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+      SPRING_APPLICATION_NAME: ms-sprints
+
+volumes:
+  sprint_db_data:

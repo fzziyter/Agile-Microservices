@@ -1,0 +1,44 @@
+version: '3.9'
+
+services:
+  mysql:
+    image: mysql:8.1
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: mysql
+      MYSQL_DATABASE: notifications
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_notifications_data:/var/lib/mysql
+
+  discovery-server:
+    build:
+      context: ../discovery-server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+    depends_on:
+      - mysql
+    environment:
+      - EUREKA_INSTANCE_HOSTNAME=discovery-server
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: DOCKERFILE
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    depends_on:
+      - mysql
+      - discovery-server
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/notifications?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: mysql
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+
+volumes:
+  mysql_notifications_data:
