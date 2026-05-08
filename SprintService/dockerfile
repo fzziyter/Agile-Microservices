@@ -1,25 +1,5 @@
-# ─── Stage 1: Build ───────────────────────────────────────────────────────────
-FROM maven:3.9.6-eclipse-temurin-17 AS builder
-
+FROM eclipse-temurin:17-jdk-alpine
 WORKDIR /app
-
-# Cache dependencies before copying full source
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-
-# Copy source and package
-COPY src ./src
-RUN mvn clean package -DskipTests -B
-
-# ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
-FROM eclipse-temurin:17-jre-alpine
-
-WORKDIR /app
-
-# Artifact id is "SprintService"
-COPY --from=builder /app/target/SprintService-0.0.1-SNAPSHOT.jar app.jar
-
-# SprintService listens on port 8084
-EXPOSE 8084
-
+# On copie le JAR depuis le dossier target local vers le conteneur
+COPY target/*.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ms-sprints-config
+  namespace: default
+data:
+  SPRING_APPLICATION_NAME: "ms-sprints"
+  SERVER_PORT: "8084"
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://discovery-server:8761/eureka/"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  SPRING_JPA_SHOW_SQL: "true"
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-sprints
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ms-sprints
+  template:
+    metadata:
+      labels:
+        app: ms-sprints
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z mysql 3306; do echo "Waiting for MySQL..."; sleep 3; done']
+        - name: wait-for-eureka
+          image: busybox:1.36
+          command: ['sh', '-c', 'until wget -qO- http://discovery-server:8761/actuator/health | grep UP; do echo "Waiting for Eureka..."; sleep 5; done']
+      containers:
+        - name: ms-sprints
+          image: ms-sprints:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8084
+          envFrom:
+            - configMapRef:
+                name: ms-sprints-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/sprints?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "root"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-sprints
+  namespace: default
+spec:
+  selector:
+    app: ms-sprints
+  ports:
+    - port: 8084
+      targetPort: 8084
+  type: ClusterIP

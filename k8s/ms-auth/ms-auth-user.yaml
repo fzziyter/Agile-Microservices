@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ms-auth-config
+  namespace: default
+data:
+  SPRING_APPLICATION_NAME: "ms-auth-user"
+  SERVER_PORT: "8081"
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: "http://discovery-server:8761/eureka/"
+  SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+  SPRING_JPA_SHOW_SQL: "true"
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+  JWT_EXPIRATION_MS: "86400000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-auth-user
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ms-auth-user
+  template:
+    metadata:
+      labels:
+        app: ms-auth-user
+    spec:
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z mysql 3306; do echo "Waiting for MySQL..."; sleep 3; done']
+        - name: wait-for-eureka
+          image: busybox:1.36
+          command: ['sh', '-c', 'until wget -qO- http://discovery-server:8761/actuator/health | grep UP; do echo "Waiting for Eureka..."; sleep 5; done']
+      containers:
+        - name: ms-auth-user
+          image: ms-auth-user:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: ms-auth-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/auth_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "root"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_ROOT_PASSWORD
+            - name: JWT_SECRET
+              value: "MySuperSecretKeyForJWTThatIsAtLeast32Chars!"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-auth-user
+  namespace: default
+spec:
+  selector:
+    app: ms-auth-user
+  ports:
+    - port: 8081
+      targetPort: 8081
+  type: ClusterIP

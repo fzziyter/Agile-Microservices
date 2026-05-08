@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-server
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discovery-server
+  template:
+    metadata:
+      labels:
+        app: discovery-server
+    spec:
+      containers:
+      - env:
+        - name: SPRING_APPLICATION_NAME
+          value: discovery-server
+        - name: SERVER_PORT
+          value: '8761'
+        - name: EUREKA_CLIENT_REGISTER_WITH_EUREKA
+          value: 'false'
+        - name: EUREKA_CLIENT_FETCH_REGISTRY
+          value: 'false'
+        - name: EUREKA_INSTANCE_HOSTNAME
+          value: discovery-server
+        image: discovery-server:latest
+        imagePullPolicy: Never
+        name: discovery-server
+        ports:
+        - containerPort: 8761
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-server
+  namespace: default
+spec:
+  ports:
+  - port: 8761
+    targetPort: 8761
+  selector:
+    app: discovery-server
+  type: ClusterIP
